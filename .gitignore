@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+build/
+
+# Environment — NEVER commit .env.local (contains private keys / tokens)
+.env.local
+.env.*.local
+
+# Solana / Anchor
+program/target/
+program/.anchor/
+**/*.so
+**/*.keypair.json
+
+# Arcium build artifacts
+program/build/
+ciphergate_mxe/.git/
+ciphergate_mxe/node_modules/
+ciphergate_mxe/target/
+ciphergate_mxe/artifacts/
+ciphergate_mxe/test-ledger/
+ciphergate_mxe/.anchor/
+ciphergate_mxe/**/*.so
+ciphergate_mxe/build/*.ir
+ciphergate_mxe/build/*.idarc
+ciphergate_mxe/build/*.weight
+ciphergate_mxe/build/*.profile.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+
+tsconfig.tsbuildinfo

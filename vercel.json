@@ -1,0 +1,13 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "outputDirectory": ".next",
+  "env": {
+    "NEXT_PUBLIC_SOLANA_NETWORK": "devnet",
+    "NEXT_PUBLIC_SOLANA_RPC": "https://api.devnet.solana.com",
+    "NEXT_PUBLIC_ARCIUM_CLUSTER_OFFSET": "456",
+    "NEXT_PUBLIC_ARCIUM_ENDPOINT": "DEMO_MODE"
+  }
+}

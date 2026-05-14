@@ -1,0 +1,110 @@
+// CipherGate — Arcium MPC Circuit: store_key
+// ─────────────────────────────────────────────
+// This circuit stores an encryption key inside Arcium's
+// Multi-Party Computation network using secret sharing.
+//
+// The key is split via Shamir's Secret Sharing across
+// Arcium's MPC nodes. No single node can reconstruct it.
+//
+// In production, compile with the Arcis compiler:
+//   arcis build
+//
+// Ref: https://docs.arcium.com/circuits
+
+use arcis::prelude::*;
+
+/// Encrypted key storage with access policy
+#[encrypted]
+mod circuits {
+    use arcis::prelude::*;
+
+    /// Policy-gated key storage
+    /// Called by creator after uploading encrypted file
+    #[instruction]
+    pub fn store_key(
+        ctx: Context<StoreKey>,
+        policy_id: [u8; 32],
+        key_bytes: [u8; 32],       // AES-256 key (32 bytes)
+        max_uses: u8,               // 0 = unlimited
+        expiry_hours: u32,          // 0 = no expiry
+    ) -> Result<()> {
+        // Store the key inside MPC encrypted state
+        // Arcium's threshold encryption splits this across nodes
+        ctx.accounts.key_store.policy_id = policy_id;
+        ctx.accounts.key_store.key_bytes = key_bytes;
+        ctx.accounts.key_store.max_uses = max_uses;
+        ctx.accounts.key_store.expiry_hours = expiry_hours;
+        ctx.accounts.key_store.use_count = 0;
+        ctx.accounts.key_store.owner = ctx.accounts.owner.key();
+        Ok(())
+    }
+
+    /// Request decryption — policy is enforced inside MPC
+    /// Conditions checked in encrypted space before key release
+    #[instruction]
+    pub fn request_key(
+        ctx: Context<RequestKey>,
+        policy_id: [u8; 32],
+        requester: Pubkey,
+    ) -> Result<[u8; 32]> {
+        let store = &mut ctx.accounts.key_store;
+
+        // 1. Verify policy ID matches
+        assert_eq!(store.policy_id, policy_id, "Policy mismatch");
+
+        // 2. Check requester is authorized (paid on-chain)
+        let access_record = &ctx.accounts.access_record;
+        assert_eq!(access_record.user, requester, "Unauthorized requester");
+
+        // 3. Check expiry
+        if store.expiry_hours > 0 {
+            let expiry_ts = access_record.purchased_at
+                + (store.expiry_hours as i64 * 3600);
+            let now = Clock::get()?.unix_timestamp;
+            assert!(now < expiry_ts, "Access expired");
+        }
+
+        // 4. Check usage limit
+        if store.max_uses > 0 {
+            assert!(
+                access_record.uses < store.max_uses,
+                "Usage limit reached"
+            );
+        }
+
+        // All checks passed — return key from encrypted state
+        // Arcium reconstructs the key ephemerally via MPC
+        Ok(store.key_bytes)
+    }
+
+    // ─── Account Structs ───────────────────────────────────────────
+
+    #[encrypted_account]
+    pub struct KeyStore {
+        pub policy_id: [u8; 32],
+        pub key_bytes: [u8; 32],    // AES-256 key — encrypted in MPC
+        pub max_uses: u8,
+        pub expiry_hours: u32,
+        pub use_count: u8,
+        pub owner: Pubkey,
+        pub revoked_users: Vec<Pubkey>,
+    }
+
+    #[derive(Accounts)]
+    pub struct StoreKey<'info> {
+        #[account(init, payer = owner)]
+        pub key_store: Account<'info, KeyStore>,
+        #[account(mut)]
+        pub owner: Signer<'info>,
+        pub system_program: Program<'info, System>,
+    }
+
+    #[derive(Accounts)]
+    pub struct RequestKey<'info> {
+        #[account(mut)]
+        pub key_store: Account<'info, KeyStore>,
+        /// CHECK: CipherGate AccessRecord PDA
+        pub access_record: AccountInfo<'info>,
+        pub requester: Signer<'info>,
+    }
+}
