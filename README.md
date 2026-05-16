@@ -4,6 +4,8 @@ Encrypted file access control prototype built with Next.js, Solana/Anchor, and A
 
 CipherGate lets a creator encrypt a file in the browser, publish a priced listing, and let authorized users decrypt the file after access checks. The current submission is a working frontend demo plus a compiling Arcium encrypted computation scaffold.
 
+live link: ciphergate-x.vercel.app
+
 ## Current Status
 
 - Next.js app builds and runs locally.
