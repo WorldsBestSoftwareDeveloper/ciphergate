@@ -13,6 +13,7 @@ import { authorizeUser, requestDecryptionKey } from '@/lib/arcium'
 import { fetchFromIPFS } from '@/lib/ipfs'
 import { decryptFile, createDownloadUrl } from '@/lib/encryption'
 import { transferSOL, explorerTxLink, shortSig } from '@/lib/solana'
+import { signLocalAttestation } from '@/lib/walletAttestation'
 import { lamportsToSol, truncateAddress, formatExpiry, formatFileSize } from '@/lib/utils'
 import {
   Lock, Unlock, Shield, Clock, Repeat, User, ExternalLink,
@@ -97,7 +98,7 @@ export default function AssetDetailPage() {
   // ─── Decrypt Flow ────────────────────────────────────────────────────
 
   const handleDecrypt = async () => {
-    if (!asset || !publicKey) return
+    if (!asset || !publicKey || !signTransaction) return
 
     if (!isOwner) {
       if (!accessRecord) return
@@ -115,6 +116,8 @@ export default function AssetDetailPage() {
     setDownloadUrl('')
 
     try {
+      await signLocalAttestation(connection, publicKey, signTransaction, 'decrypt', asset.title)
+
       // 1. Request key from Arcium (policy checks happen inside MPC)
       const keyHex = await requestDecryptionKey(
         publicKey.toBase58(),

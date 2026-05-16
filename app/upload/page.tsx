@@ -2,12 +2,14 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
+import { useConnection } from '@solana/wallet-adapter-react'
 import { Header } from '@/components/Header'
 import { LoadingSpinner } from '@/components/LoadingStates'
 import { encryptFile } from '@/lib/encryption'
 import { uploadToIPFS } from '@/lib/ipfs'
 import { storeEncryptedKey } from '@/lib/arcium'
 import { createAsset } from '@/lib/store'
+import { signLocalAttestation } from '@/lib/walletAttestation'
 import { solToLamports, getFileType, formatFileSize, generateId } from '@/lib/utils'
 import {
   Upload, Lock, Shield, Clock, Repeat, CheckCircle,
@@ -46,7 +48,8 @@ const STEPS: Record<string, StepInfo> = {
 }
 
 export default function UploadPage() {
-  const { publicKey, connected } = useWallet()
+  const { publicKey, connected, signTransaction } = useWallet()
+  const { connection } = useConnection()
 
   // Form state
   const [title, setTitle] = useState('')
@@ -80,13 +83,15 @@ export default function UploadPage() {
   }, [title])
 
   const handleUpload = async () => {
-    if (!selectedFile || !publicKey || !title.trim()) return
+    if (!selectedFile || !publicKey || !signTransaction || !title.trim()) return
 
     setStep('encrypting')
     setCompletedSteps([])
     setError('')
 
     try {
+      await signLocalAttestation(connection, publicKey, signTransaction, 'upload', title.trim())
+
       // Step 1: Encrypt
       const { encryptedData, keyHex, iv } = await encryptFile(selectedFile)
       setCompletedSteps(p => [...p, 'encrypting'])

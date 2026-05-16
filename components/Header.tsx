@@ -4,22 +4,18 @@ import { useWallet } from '@solana/wallet-adapter-react'
 import { useConnection } from '@solana/wallet-adapter-react'
 import { useEffect, useState } from 'react'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
-import { Shield, Zap } from 'lucide-react'
+import { ChevronDown, Shield, Zap } from 'lucide-react'
 import Link from 'next/link'
-import dynamic from 'next/dynamic'
 import { requestAirdrop } from '@/lib/solana'
 
-const WalletMultiButton = dynamic(
-  async () => (await import('@solana/wallet-adapter-react-ui')).WalletMultiButton,
-  { ssr: false }
-)
-
 export function Header() {
-  const { publicKey, connected } = useWallet()
+  const { publicKey, connected, connecting, disconnect, select, connect, wallets, wallet } = useWallet()
   const { connection } = useConnection()
   const [balance, setBalance] = useState<number | null>(null)
   const [airdropping, setAirdropping] = useState(false)
   const [airdropMsg, setAirdropMsg] = useState('')
+  const [walletError, setWalletError] = useState('')
+  const [connectRequested, setConnectRequested] = useState(false)
 
   const fetchBalance = async () => {
     if (!publicKey) return
@@ -36,6 +32,14 @@ export function Header() {
     return () => clearInterval(id)
   }, [publicKey, connection])
 
+  useEffect(() => {
+    if (!connectRequested || connected || connecting || !wallet) return
+
+    connect()
+      .catch((err: any) => setWalletError(err?.message ?? 'Wallet connection failed'))
+      .finally(() => setConnectRequested(false))
+  }, [connectRequested, connected, connecting, wallet, connect])
+
   const handleAirdrop = async () => {
     if (!publicKey) return
     setAirdropping(true)
@@ -49,6 +53,29 @@ export function Header() {
     } finally {
       setAirdropping(false)
       setTimeout(() => setAirdropMsg(''), 3000)
+    }
+  }
+
+  const handleWalletClick = async () => {
+    setWalletError('')
+
+    if (connected) {
+      await disconnect()
+      setConnectRequested(false)
+      return
+    }
+
+    const phantom = wallets.find(w => w.adapter.name.toLowerCase().includes('phantom'))
+    if (!phantom) {
+      setWalletError('Install or unlock Phantom')
+      return
+    }
+
+    try {
+      select(phantom.adapter.name)
+      setConnectRequested(true)
+    } catch (err: any) {
+      setWalletError(err?.message ?? 'Wallet connection failed')
     }
   }
 
@@ -101,18 +128,25 @@ export function Header() {
             </div>
           )}
 
-          <WalletMultiButton
-            style={{
-              background: 'rgba(109, 93, 246, 0.15)',
-              border: '1px solid rgba(109, 93, 246, 0.3)',
-              borderRadius: '12px',
-              fontFamily: 'Segoe UI, Inter, Arial, sans-serif',
-              fontSize: '13px',
-              fontWeight: '600',
-              height: '38px',
-              padding: '0 16px',
-            }}
-          />
+          <div className="relative">
+            <button
+              onClick={handleWalletClick}
+              disabled={connecting}
+              className="h-[38px] px-4 rounded-xl bg-primary/15 border border-primary/30 text-sm font-semibold text-text-primary hover:bg-primary/25 transition-all disabled:opacity-60 flex items-center gap-2"
+            >
+              {connecting || connectRequested
+                ? 'Connecting...'
+                : connected && publicKey
+                  ? `${publicKey.toBase58().slice(0, 4)}...${publicKey.toBase58().slice(-4)}`
+                  : 'Connect Wallet'}
+              {connected && <ChevronDown size={13} className="text-text-secondary" />}
+            </button>
+            {walletError && (
+              <div className="absolute right-0 top-11 w-48 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                {walletError}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>
